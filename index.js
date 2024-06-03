@@ -32,13 +32,40 @@ async function run() {
     // --------------------DB collection---------------------------
     // ----------------------------------------------------------------
 
+    const userCollection = client.db("insightNexusDB").collection("allUser");
     const surveyCollection = client.db("insightNexusDB").collection("survey");
 
+    // ----------------------------------------------------------------
+    // --------------------user related route---------------------------
+    // ----------------------------------------------------------------
+
+    app.get("/users", async (req, res) => {
+      // const cursor = userCollection.find();
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    app.post("/user", async (req, res) => {
+      const user = req.body;
+      // insert email if user doesnt exists:
+      // you can do this many ways (1. email unique, 2. upsert 3. simple checking)
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists", insertedId: null });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await userCollection.findOne({ email });
+      res.send(result);
+    });
     // ----------------------------------------------------------------
     // --------------------survey related route---------------------------
     // ----------------------------------------------------------------
 
-    app.get("/survey", async (req, res) => {
+    app.get("/surveys", async (req, res) => {
       // const cursor = surveyCollection.find();
       const result = await surveyCollection.find().toArray();
       res.send(result);
@@ -50,9 +77,9 @@ async function run() {
       res.send(result);
     });
 
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -61,7 +88,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("babu is running");
+  res.send("server is running");
 });
 
 app.listen(port, () => {
