@@ -36,6 +36,7 @@ async function run() {
     const userCollection = client.db("insightNexusDB").collection("allUser");
     const surveyCollection = client.db("insightNexusDB").collection("survey");
     const voteCollection = client.db("insightNexusDB").collection("vote");
+    const commentCollection = client.db("insightNexusDB").collection("comment");
 
     // ----------------------------------------------------------------
     // --------------------jwt related api---------------------------
@@ -154,6 +155,23 @@ async function run() {
       const addNewSurvey = req.body;
       //   console.log(addNewSurvey);
       const result = await surveyCollection.insertOne(addNewSurvey);
+      res.send(result);
+    });
+
+    // -----------------------------------------------------------------------
+    // --------------------comment related route---------------------------
+    // -----------------------------------------------------------------------
+
+    app.post("/com", async (req, res) => {
+      const comment = req.body;
+      const result = await commentCollection.insertOne(comment);
+      res.send(result);
+    });
+
+    app.get("/com/:survey_id", async (req, res) => {
+      const result = await commentCollection
+        .find({ survey_id: req.params.survey_id })
+        .toArray();
       res.send(result);
     });
 
