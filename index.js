@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const jwt = require("jsonwebtoken");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -34,20 +35,55 @@ async function run() {
 
     const userCollection = client.db("insightNexusDB").collection("allUser");
     const surveyCollection = client.db("insightNexusDB").collection("survey");
+    const voteCollection = client.db("insightNexusDB").collection("vote");
+
+    // ----------------------------------------------------------------
+    // --------------------jwt related api---------------------------
+    //
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.AccessTOKEN_Secrete, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    // ----------------------------------------------------------------
+    // --------------------custom middlewares---------------------------
+    //
+    const verifyToken = (req, res, next) => {
+      console.log("inside verify token", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.AccessTOKEN_Secrete, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // use verify admin after verifyToken
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
     // ----------------------------------------------------------------
     // --------------------user related route---------------------------
     // ----------------------------------------------------------------
 
-    app.get("/users", async (req, res) => {
-      // const cursor = userCollection.find();
-      const result = await userCollection.find().toArray();
-      res.send(result);
-    });
     app.post("/user", async (req, res) => {
       const user = req.body;
-      // insert email if user doesnt exists:
-      // you can do this many ways (1. email unique, 2. upsert 3. simple checking)
       const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
       if (existingUser) {
@@ -56,11 +92,40 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
-    app.get("/user/:email", async (req, res) => {
+    app.get("/users", async (req, res) => {
+      // const cursor = userCollection.find();
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
       const result = await userCollection.findOne({ email });
       res.send(result);
     });
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // ----------------------------------------------------------------
     // --------------------survey related route---------------------------
     // ----------------------------------------------------------------
@@ -68,6 +133,21 @@ async function run() {
     app.get("/surveys", async (req, res) => {
       // const cursor = surveyCollection.find();
       const result = await surveyCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/surveys/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await surveyCollection.findOne(query);
+      res.send(result);
+    });
+    app.get("/vote", async (req, res) => {
+      const result = await voteCollection.find().toArray();
+      res.send(result);
+    });
+    app.post("/vote", async (req, res) => {
+      const addNewVote = req.body;
+      const result = await voteCollection.insertOne(addNewVote);
       res.send(result);
     });
     app.post("/addSurvey", async (req, res) => {
