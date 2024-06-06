@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const app = express();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -16,7 +17,7 @@ app.use(
 );
 app.use(express.json());
 
-const uri = `mongodb+srv://${process.env.DB_user}:${process.env.Db_Pass}@cluster0.tvtcgta.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.tvtcgta.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -37,16 +38,34 @@ async function run() {
     const surveyCollection = client.db("insightNexusDB").collection("survey");
     const voteCollection = client.db("insightNexusDB").collection("vote");
     const commentCollection = client.db("insightNexusDB").collection("comment");
+    const reportCollection = client.db("insightNexusDB").collection("report");
 
     // ----------------------------------------------------------------
     // --------------------jwt related api---------------------------
     //
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.AccessTOKEN_Secrete, {
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "1h",
       });
       res.send({ token });
+    });
+
+    // payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "amount inside the intent");
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     // ----------------------------------------------------------------
@@ -157,6 +176,16 @@ async function run() {
       const result = await surveyCollection.insertOne(addNewSurvey);
       res.send(result);
     });
+    app.put("/editSurvey/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateSurvey = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updateSurvey,
+      };
+      const result = await surveyCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // -----------------------------------------------------------------------
     // --------------------comment related route---------------------------
@@ -171,6 +200,22 @@ async function run() {
     app.get("/com/:survey_id", async (req, res) => {
       const result = await commentCollection
         .find({ survey_id: req.params.survey_id })
+        .toArray();
+      res.send(result);
+    });
+    // -----------------------------------------------------------------------
+    // --------------------report related route---------------------------
+    // -----------------------------------------------------------------------
+
+    app.post("/reports", async (req, res) => {
+      const getReport = req.body;
+      const result = await reportCollection.insertOne(getReport);
+      res.send(result);
+    });
+
+    app.get("/reports/:report_id", async (req, res) => {
+      const result = await reportCollection
+        .find({ report_id: req.params.report_id })
         .toArray();
       res.send(result);
     });
