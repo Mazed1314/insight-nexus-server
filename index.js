@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://insight-nexus.web.app"],
     credentials: true,
   })
 );
@@ -70,23 +70,26 @@ async function run() {
 
     // ----------------------------------------------------------------
     // --------------------custom middlewares---------------------------
-    //
+    //-----------------------------------------------------------------
+
     const verifyToken = (req, res, next) => {
       console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: "unauthorized access" });
+        return res.status(401).send({ message: "unauthorized4 access" });
       }
       const token = req.headers.authorization.split(" ")[1];
-      jwt.verify(token, process.env.AccessTOKEN_Secrete, (err, decoded) => {
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: "unauthorized access" });
+          return res.status(401).send({ message: "unauthorized1 access" });
         }
         req.decoded = decoded;
         next();
       });
     };
+    // ------------------------------------------------------------------
+    // -------------use verify admin after verifyToken------------------
+    // ------------------------------------------------------------------
 
-    // use verify admin after verifyToken
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email };
@@ -102,6 +105,17 @@ async function run() {
     // --------------------user related route---------------------------
     // ----------------------------------------------------------------
 
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await userCollection.findOne({ email });
+      res.send(result);
+    });
+
     app.post("/user", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -112,16 +126,7 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
-    app.get("/users", async (req, res) => {
-      // const cursor = userCollection.find();
-      const result = await userCollection.find().toArray();
-      res.send(result);
-    });
-    app.get("/users/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await userCollection.findOne({ email });
-      res.send(result);
-    });
+
     app.patch(
       "/users/admin/:id",
       verifyToken,
@@ -129,11 +134,7 @@ async function run() {
       async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
-        const updatedDoc = {
-          $set: {
-            role: "admin",
-          },
-        };
+        const updatedDoc = { $set: { role: "admin" } };
         const result = await userCollection.updateOne(filter, updatedDoc);
         res.send(result);
       }
@@ -151,7 +152,6 @@ async function run() {
     // ----------------------------------------------------------------
 
     app.get("/surveys", async (req, res) => {
-      // const cursor = surveyCollection.find();
       const result = await surveyCollection.find().toArray();
       res.send(result);
     });
@@ -161,29 +161,101 @@ async function run() {
       const result = await surveyCollection.findOne(query);
       res.send(result);
     });
+
+    app.post("/addSurvey", async (req, res) => {
+      const addNewSurvey = req.body;
+      const result = await surveyCollection.insertOne(addNewSurvey);
+      res.send(result);
+    });
+
+    app.put("/editSurvey/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateSurvey = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = { $set: updateSurvey };
+      const result = await surveyCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    app.delete("/survey/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await surveyCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // ----------------------------------------------------------------
+    // --------------------vote related route---------------------------
+    // ----------------------------------------------------------------
+
     app.get("/vote", async (req, res) => {
       const result = await voteCollection.find().toArray();
       res.send(result);
     });
+
+    // get all data by email
+    app.get("/vote/:email", async (req, res) => {
+      const result = await voteCollection
+        .find({ currentUserEmail: req.params.email })
+        .toArray();
+      res.send(result);
+    });
+
+    // get all data by survey_id
+    app.get("/vote/survey/:id", async (req, res) => {
+      const result = await voteCollection
+        .find({ survey_id: req.params.id })
+        .toArray();
+      res.send(result);
+    });
+
+    // get single data by id
+    app.get("/vote/id/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await voteCollection.findOne(query);
+      res.send(result);
+    });
+
     app.post("/vote", async (req, res) => {
       const addNewVote = req.body;
       const result = await voteCollection.insertOne(addNewVote);
       res.send(result);
     });
-    app.post("/addSurvey", async (req, res) => {
-      const addNewSurvey = req.body;
-      //   console.log(addNewSurvey);
-      const result = await surveyCollection.insertOne(addNewSurvey);
+
+    // -----------------------------------------------------------------------
+    // --------------------report related route---------------------------
+    // -----------------------------------------------------------------------
+
+    app.post("/reports", async (req, res) => {
+      const getReport = req.body;
+      const result = await reportCollection.insertOne(getReport);
       res.send(result);
     });
-    app.put("/editSurvey/:id", async (req, res) => {
+
+    app.get("/reports", async (req, res) => {
+      const result = await reportCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/reports/:id", async (req, res) => {
       const id = req.params.id;
-      const updateSurvey = req.body;
       const query = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: updateSurvey,
-      };
-      const result = await surveyCollection.updateOne(query, updateDoc);
+      const result = await reportCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/reports/surveys/:survey_id", async (req, res) => {
+      const result = await reportCollection
+        .find({ survey_id: req.params.survey_id })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/reports/email/:email", async (req, res) => {
+      const result = await reportCollection
+        .find({ reporter: req.params.email })
+        .toArray();
       res.send(result);
     });
 
@@ -203,26 +275,6 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    // -----------------------------------------------------------------------
-    // --------------------report related route---------------------------
-    // -----------------------------------------------------------------------
-
-    app.post("/reports", async (req, res) => {
-      const getReport = req.body;
-      const result = await reportCollection.insertOne(getReport);
-      res.send(result);
-    });
-
-    app.get("/reports/:report_id", async (req, res) => {
-      const result = await reportCollection
-        .find({ report_id: req.params.report_id })
-        .toArray();
-      res.send(result);
-    });
-
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
