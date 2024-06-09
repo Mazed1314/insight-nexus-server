@@ -127,6 +127,15 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/edit/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateUser = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = { $set: updateUser };
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
     app.patch(
       "/users/admin/:id",
       verifyToken,
@@ -159,6 +168,13 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await surveyCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/surveys/email/:email", async (req, res) => {
+      const result = await surveyCollection
+        .find({ Surveyor_email: req.params.email })
+        .toArray();
       res.send(result);
     });
 
@@ -273,6 +289,26 @@ async function run() {
       const result = await commentCollection
         .find({ survey_id: req.params.survey_id })
         .toArray();
+      res.send(result);
+    });
+
+    app.get("/com/email/:email", async (req, res) => {
+      const result = await commentCollection
+        .find({ currentUserEmail: req.params.email })
+        .short({ commentTime: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/com", async (req, res) => {
+      const result = await commentCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.delete("/com/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await commentCollection.deleteOne(query);
       res.send(result);
     });
   } finally {
