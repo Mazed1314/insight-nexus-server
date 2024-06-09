@@ -39,10 +39,12 @@ async function run() {
     const voteCollection = client.db("insightNexusDB").collection("vote");
     const commentCollection = client.db("insightNexusDB").collection("comment");
     const reportCollection = client.db("insightNexusDB").collection("report");
+    const paymentCollection = client.db("insightNexusDB").collection("payment");
 
     // ----------------------------------------------------------------
     // --------------------jwt related api---------------------------
-    //
+    //--------------------------------------------------------------------
+
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -50,8 +52,9 @@ async function run() {
       });
       res.send({ token });
     });
-
-    // payment intent
+    // --------------------------------------------------------------
+    // --------------------payment intent--------------------------------
+    // ----------------------------------------------------------------
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
@@ -68,6 +71,17 @@ async function run() {
       });
     });
 
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      console.log("payment info", payment);
+      res.send({ paymentResult });
+    });
+
+    app.get("/payments", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
     // ----------------------------------------------------------------
     // --------------------custom middlewares---------------------------
     //-----------------------------------------------------------------
