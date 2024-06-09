@@ -309,7 +309,6 @@ async function run() {
     app.get("/com/email/:email", async (req, res) => {
       const result = await commentCollection
         .find({ currentUserEmail: req.params.email })
-        .short({ commentTime: -1 })
         .toArray();
       res.send(result);
     });
