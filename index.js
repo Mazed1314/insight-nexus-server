@@ -84,6 +84,13 @@ async function run() {
       const result = await paymentCollection.find().toArray();
       res.send(result);
     });
+
+    app.delete("/payments/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await paymentCollection.deleteOne(query);
+      res.send(result);
+    });
     // ----------------------------------------------------------------
     // --------------------custom middlewares---------------------------
     //-----------------------------------------------------------------
