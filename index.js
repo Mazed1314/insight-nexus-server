@@ -52,6 +52,39 @@ async function run() {
       });
       res.send({ token });
     });
+
+    // ----------------------------------------------------------------
+    // --------------------custom middlewares---------------------------
+    //-----------------------------------------------------------------
+
+    const verifyToken = (req, res, next) => {
+      console.log("inside verify token", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized4 access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized1 access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+    // ------------------------------------------------------------------
+    // -------------use verify admin after verifyToken------------------
+    // ------------------------------------------------------------------
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
     // --------------------------------------------------------------
     // --------------------payment intent--------------------------------
     // ----------------------------------------------------------------
@@ -91,38 +124,6 @@ async function run() {
       const result = await paymentCollection.deleteOne(query);
       res.send(result);
     });
-    // ----------------------------------------------------------------
-    // --------------------custom middlewares---------------------------
-    //-----------------------------------------------------------------
-
-    const verifyToken = (req, res, next) => {
-      console.log("inside verify token", req.headers.authorization);
-      if (!req.headers.authorization) {
-        return res.status(401).send({ message: "unauthorized4 access" });
-      }
-      const token = req.headers.authorization.split(" ")[1];
-      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-          return res.status(401).send({ message: "unauthorized1 access" });
-        }
-        req.decoded = decoded;
-        next();
-      });
-    };
-    // ------------------------------------------------------------------
-    // -------------use verify admin after verifyToken------------------
-    // ------------------------------------------------------------------
-
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await userCollection.findOne(query);
-      const isAdmin = user?.role === "admin";
-      if (!isAdmin) {
-        return res.status(403).send({ message: "forbidden access" });
-      }
-      next();
-    };
 
     // ----------------------------------------------------------------
     // --------------------user related route---------------------------
@@ -259,7 +260,6 @@ async function run() {
       const result = await voteCollection.find().toArray();
       res.send(result);
     });
-
     // get all data by email
     app.get("/vote/:email", async (req, res) => {
       const result = await voteCollection
@@ -272,6 +272,20 @@ async function run() {
     app.get("/vote/survey/:id", async (req, res) => {
       const result = await voteCollection
         .find({ survey_id: req.params.id })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/vote/survey/yes/:id", async (req, res) => {
+      const surveyId = req.params.id;
+      const result = await voteCollection
+        .find({ survey_id: surveyId, vote: "yes" })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/vote/survey/no/:id", async (req, res) => {
+      const surveyId = req.params.id;
+      const result = await voteCollection
+        .find({ survey_id: surveyId, vote: "no" })
         .toArray();
       res.send(result);
     });
