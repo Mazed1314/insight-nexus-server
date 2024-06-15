@@ -335,11 +335,17 @@ async function run() {
 
     app.get("/reports/email/:email", async (req, res) => {
       const result = await reportCollection
-        .find({ reporter: req.params.email })
+        .find({ reporterEmail: req.params.email })
         .toArray();
       res.send(result);
     });
 
+    app.delete("/reports/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reportCollection.deleteOne(query);
+      res.send(result);
+    });
     // -----------------------------------------------------------------------
     // --------------------comment related route---------------------------
     // -----------------------------------------------------------------------
